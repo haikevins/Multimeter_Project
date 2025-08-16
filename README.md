@@ -12,8 +12,8 @@ It uses PWM generation, PWM input capture, ADC sampling, and LCD display via I2C
 
 ## Tools
 - STM32 Standard Peripheral Library
-- Keil uVision / ARMCC
-- Hardware: STM32F103, I2C LCD, basic passive components
+- Keil uVision
+- Hardware: STM32F103C8T6, I2C LCD, basic passive components
 
 ## Author
 Nguyen Ngoc Hai – April 2025
