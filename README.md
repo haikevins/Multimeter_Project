@@ -1,4 +1,4 @@
-# STM32 Capacitor Measurement Project
+# STM32 Multimeter Project
 
 This project implements a capacitor measurement system on the STM32F1 series MCU.  
 It uses PWM generation, PWM input capture, ADC sampling, and LCD display via I2C.
