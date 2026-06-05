@@ -11,15 +11,55 @@ It uses PWM generation, PWM input capture, ADC sampling, and LCD display via I2C
 * LCD display with custom icons (Ω, ↑, ↓)
 * Modular drivers: GPIO, PWM, ADC, I2C, SYSTICK, USART, FLASH
 
-## Tools
+## Hardware
+
+* STM32F103C8T6
+* LCD1602
+* I2C LCD module
+* Push buttons
+* Resistors and capacitors for measurement testing
+* ST-Link programmer/debugger
+* External signal source for PWM testing
+
+## Software / Tools
 
 * STM32 Standard Peripheral Library
 * Keil uVision
-* Hardware: STM32F103C8T6, LCD1602, I2C module, buttons, ...
+* STM32CubeProgrammer or ST-Link Utility
+* GitHub for version control
 
-## Author
+## Project Structure
 
-Nguyen Ngoc Hai – April 2025
+```txt
+Multimeter_Project/
+├── MDK/
+│   └── Keil project and build configuration files
+├── USER/
+│   └── Main application source code and user modules
+└── README.md
+```
+
+## Measurement Methods
+
+### Frequency Measurement
+
+The input PWM frequency is measured using the timer input capture feature of the STM32F1 MCU.
+The timer captures signal edges and calculates the signal period, then the frequency is obtained from the timer clock and captured period value.
+
+### Duty Cycle Measurement
+
+The duty cycle is calculated from the high-level time and the total signal period.
+PWM input capture is used to determine both the pulse width and the full period of the input signal.
+
+### Capacitance Measurement
+
+Capacitance is estimated using an RC timing method.
+The capacitor charging or discharging time is measured, then the capacitance value is calculated based on the known resistance and timing result.
+
+### Resistance Measurement
+
+Resistance is estimated using an ADC-based voltage measurement method.
+The unknown resistor is measured through a voltage divider circuit, and the resistance value is calculated from the ADC reading.
 
 ## Frequency Measurement Results
 
@@ -84,3 +124,47 @@ Nguyen Ngoc Hai – April 2025
 | Resistance measurement |         220 kΩ |    210 – 235 kΩ |             ~7% |
 | Resistance measurement |         470 kΩ |    445 – 510 kΩ |             ~8% |
 | Resistance measurement |           1 MΩ |  0.92 – 1.10 MΩ |            ~10% |
+
+## How to Build
+
+1. Clone this repository.
+
+```bash
+git clone https://github.com/haikevins/Multimeter_Project.git
+```
+
+2. Open the Keil project file inside the `MDK` folder.
+3. Select the target device as `STM32F103C8T6`.
+4. Build the project in Keil uVision.
+5. Make sure the build process finishes without errors.
+
+## How to Flash
+
+1. Connect the STM32F103C8T6 board to the computer using ST-Link.
+2. Open Keil uVision, STM32CubeProgrammer, or ST-Link Utility.
+3. Load the generated firmware file.
+4. Flash the firmware to the MCU.
+5. Reset the board and check the LCD display.
+
+## Limitations
+
+* Capacitance measurement accuracy depends on the RC timing circuit and the tolerance of the reference resistor.
+* Resistance measurement accuracy depends on ADC stability, voltage reference accuracy, and resistor tolerance.
+* High-frequency PWM measurement may be affected by timer configuration and signal noise.
+* The measured values are suitable for educational and experimental purposes.
+
+## Future Improvements
+
+* Add auto-ranging for resistance and capacitance measurement.
+* Improve ADC filtering for more stable readings.
+* Add calibration support for resistance and capacitance modes.
+* Add UART output for logging measurement data.
+* Add more detailed hardware documentation and circuit diagrams.
+
+## Author
+
+Nguyen Ngoc Hai – April 2025
+
+## License
+
+This project is intended for learning, research, and embedded system practice.
