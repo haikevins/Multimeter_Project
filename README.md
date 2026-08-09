@@ -8,8 +8,6 @@
 
 https://github.com/user-attachments/assets/a0ac701d-f62f-4f02-b387-78f6bc3d9e51
 
-> The demo shows the Mini Multimeter operating on real hardware, including menu navigation, measurement functions and PWM signal features.
-
 ---
 
 ## Table of Contents
