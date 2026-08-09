@@ -4,7 +4,7 @@
 
 ---
 
-## 🎬 Demo Video
+## Demo Video
 
 https://github.com/user-attachments/assets/a0ac701d-f62f-4f02-b387-78f6bc3d9e51
 
