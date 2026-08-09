@@ -32,7 +32,6 @@ https://github.com/user-attachments/assets/a0ac701d-f62f-4f02-b387-78f6bc3d9e51
 14. [Build and Flash](#build-and-flash)
 15. [Limitations](#limitations)
 16. [Future Improvements](#future-improvements)
-17. [Author](#author)
 
 ---
 
@@ -1270,12 +1269,3 @@ Typical monitored failures include:
 - PC-side logging/plotting tool.
 - Factory/self-test mode for ADC, LCD, buttons and PWM loopback.
 - Dedicated hardware schematic and PCB documentation.
-
----
-
-<a id="author"></a>
-## 17. Author
-
-**Nguyen Ngoc Hai**
-
-Embedded Systems / STM32 Multimeter Project
