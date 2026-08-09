@@ -1276,7 +1276,7 @@ Typical monitored failures include:
 ---
 
 <a id="author"></a>
-## 18. Author
+## 17. Author
 
 **Nguyen Ngoc Hai**
 
