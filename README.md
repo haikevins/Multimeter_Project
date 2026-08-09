@@ -1212,7 +1212,6 @@ Typical monitored failures include:
 - Keil µVision
 - STM32F1 Standard Peripheral Library
 - ST-Link
-- STM32CubeProgrammer or Keil debugger
 
 ### 14.2 Build
 
@@ -1235,7 +1234,7 @@ Typical monitored failures include:
 
 1. Connect ST-Link to the board.
 2. Build the project.
-3. Download firmware from Keil or load the generated image in STM32CubeProgrammer.
+3. Flash firmware.
 4. Reset the MCU.
 5. Verify the splash screen and Main Menu on LCD1602.
 
