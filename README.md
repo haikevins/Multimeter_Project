@@ -6,15 +6,7 @@
 
 ## 🎬 Demo Video
 
-<div align="center">
-  <video src="./Demo/demo.mp4" controls width="900">
-    Your browser does not support embedded video playback.
-  </video>
-</div>
-
-<p align="center">
-  <a href="./Demo/demo.mp4"><strong>▶ Open demo video</strong></a>
-</p>
+https://github.com/user-attachments/assets/a0ac701d-f62f-4f02-b387-78f6bc3d9e51
 
 > The demo shows the Mini Multimeter operating on real hardware, including menu navigation, measurement functions and PWM signal features.
 
@@ -42,9 +34,7 @@
 14. [Build and Flash](#build-and-flash)
 15. [Limitations](#limitations)
 16. [Future Improvements](#future-improvements)
-17. [Reference Material](#reference-material)
-18. [Author](#author)
-19. [License](#license)
+17. [Author](#author)
 
 ---
 
@@ -1285,38 +1275,9 @@ Typical monitored failures include:
 
 ---
 
-<a id="reference-material"></a>
-## 17. Reference Material
-
-The documentation structure and UI flow are based on the project presentation:
-
-```text
-Multimeter Project slide(2).pdf
-```
-
-The slide describes:
-
-- Basic resistor/capacitor theory.
-- Voltage-divider concept for resistance measurement.
-- Main `Measure / Transmit` functional split.
-- `Single / All` measurement hierarchy.
-- LCD menu navigation for resistor, capacitor, frequency and duty.
-- Frequency/duty/step adjustment screens.
-
-This README uses the **current firmware implementation** for actual pin mapping, software layers, timer selection, non-blocking algorithms, filtering and runtime status handling.
-
----
-
 <a id="author"></a>
 ## 18. Author
 
 **Nguyen Ngoc Hai**
 
 Embedded Systems / STM32 Multimeter Project
-
----
-
-<a id="license"></a>
-## 19. License
-
-This project is intended for learning, research and embedded-system practice.
