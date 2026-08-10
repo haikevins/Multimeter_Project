@@ -1,4 +1,4 @@
-# Mini Multimeter
+﻿# Mini Multimeter
 
 > Mini Multimeter firmware for **STM32F103C8T6**, supporting resistance/capacitance measurement, PWM frequency/duty measurement, programmable PWM output, LCD1602 user interface, Flash persistence, UART debug and a layered embedded-software architecture.
 
@@ -564,8 +564,8 @@ Frequency is measured using STM32 timer **PWM Input Capture**.
 The timer measures the interval between two consecutive rising edges. This interval is one complete period `T`.
 
 ```text
-HIGH          +--------+          +--------+
-              |        |          |        |
+HIGH           +--------+          +--------+
+               |        |          |        |
 LOW  ----------+        +----------+        +----------
                ^                   ^
                |<-------- T ------>|
@@ -632,8 +632,8 @@ PWM input mode captures:
 Duty cycle compares the time the PWM signal remains HIGH with the duration of one complete period.
 
 ```text
-HIGH          +--------+
-              |        |
+HIGH           +--------+
+               |        |
 LOW  ----------+        +------------------+----------
                ^        ^                  ^
                |<T_high>|                  |
