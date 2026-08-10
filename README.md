@@ -446,6 +446,45 @@ The LCD intentionally accepts a new resistor reading only once per second, provi
 
 The capacitance measurement uses the capacitor charging curve of an RC circuit.
 
+
+#### RC measurement circuit
+
+The simplified RC measurement path is:
+
+```text
+ PA5 / CAP_CHARGE_CTRL
+          |
+    Rtiming = 20 kΩ
+          |
+          +------> PA4 / ADC1_CH4
+          |
+          Cx
+ capacitor under test
+          |
+         GND
+```
+
+`PA5` controls the charge/discharge state of the RC node, while `PA4 / ADC1_CH4` continuously observes the capacitor voltage `Vcap`.
+
+```text
+PA5 = HIGH
+    |
+    +----> Cx charges through Rtiming
+
+PA5 = LOW
+    |
+    +----> Cx discharges
+```
+
+The firmware measures the charging time while `Vcap` moves between the two ADC thresholds:
+
+```text
+Vcap ≈ 1.0 V                         Vcap ≈ 2.0 V
+ADC ≈ 1241                           ADC ≈ 2482
+    |                                    |
+    |<--------- measured time t -------->|
+```
+
 For a charging capacitor:
 
 ```text
@@ -519,6 +558,32 @@ or as a capacitance below the currently supported lower range (approximately 100
 
 Frequency is measured using STM32 timer **PWM Input Capture**.
 
+
+#### Frequency waveform illustration
+
+The timer measures the interval between two consecutive rising edges. This interval is one complete period `T`.
+
+```text
+HIGH          +--------+          +--------+
+              |        |          |        |
+LOW  ----------+        +----------+        +----------
+               ^                   ^
+               |<-------- T ------>|
+            rising edge         rising edge
+```
+
+Therefore:
+
+```text
+T = period_ticks / timer_clock
+
+frequency = 1 / T
+
+frequency = timer_clock / period_ticks
+```
+
+A smaller `T` means a higher frequency, while a larger `T` means a lower frequency.
+
 The timer captures the full PWM period in timer ticks:
 
 ```text
@@ -560,6 +625,43 @@ PWM input mode captures:
 
 - `period_ticks`: one complete PWM period.
 - `high_ticks`: duration of the HIGH level.
+
+
+#### Duty-cycle waveform illustration
+
+Duty cycle compares the time the PWM signal remains HIGH with the duration of one complete period.
+
+```text
+HIGH          +--------+
+              |        |
+LOW  ----------+        +------------------+----------
+               ^        ^                  ^
+               |<T_high>|                  |
+               |<----------- T ----------->|
+```
+
+The timer provides:
+
+```text
+high_ticks   -> T_high
+period_ticks -> T
+```
+
+Therefore:
+
+```text
+T_high = high_ticks / timer_clock
+
+T      = period_ticks / timer_clock
+
+Duty (%) = T_high / T × 100
+```
+
+or directly from the captured timer values:
+
+```text
+Duty (%) = high_ticks / period_ticks × 100
+```
 
 Duty cycle is calculated as:
 
