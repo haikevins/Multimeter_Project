@@ -1,4 +1,4 @@
-# STM32 Mini Multimeter
+# Mini Multimeter
 
 > Mini Multimeter firmware for **STM32F103C8T6**, supporting resistance/capacitance measurement, PWM frequency/duty measurement, programmable PWM output, LCD1602 user interface, Flash persistence, UART debug and a layered embedded-software architecture.
 
