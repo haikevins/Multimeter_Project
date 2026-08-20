@@ -664,7 +664,7 @@ HIGH      +---------+              +---------+
           |         |              |         |
 LOW  -----+         +--------------+         +------
           ^         ^              ^
-          |<Thigh-->|              |
+          |<-Thigh->|              |
           |<---------- T --------->|
 ```
 
@@ -891,8 +891,6 @@ stateDiagram-v2
 
 **Single-measurement branch**
 
-A four-way bidirectional Mermaid state diagram is intentionally avoided here. GitHub's automatic layout places all return edges around the central `SINGLE` state, which makes labels overlap and can place the right-most state under Mermaid's floating toolbar. The same transitions are clearer as a compact text diagram:
-
 ```text
 SINGLE
 ├── Resistor   -> RESISTOR
@@ -1041,15 +1039,15 @@ The private on-Flash record is 24 bytes:
 +----------------------+---------------------------+
 | Field                | Purpose                   |
 +----------------------+---------------------------+
-| magic        u32     | 0xA5A5A5A5              |
-| version      u16     | current format = 1       |
-| record_size  u16     | sizeof(Config_t)         |
-| frequency    u32     | PWM frequency            |
-| duty         u16     | PWM duty                 |
-| freq_step    u16     | frequency editor step    |
-| duty_step    u8      | duty editor step         |
+| magic        u32     | 0xA5A5A5A5                |
+| version      u16     | current format = 1        |
+| record_size  u16     | sizeof(Config_t)          |
+| frequency    u32     | PWM frequency             |
+| duty         u16     | PWM duty                  |
+| freq_step    u16     | frequency editor step     |
+| duty_step    u8      | duty editor step          |
 | reserved[3]          | deterministic padding     |
-| crc32        u32     | IEEE CRC-32              |
+| crc32        u32     | IEEE CRC-32               |
 +----------------------+---------------------------+
 ```
 
