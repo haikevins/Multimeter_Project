@@ -10,8 +10,6 @@
 
 https://github.com/user-attachments/assets/a0ac701d-f62f-4f02-b387-78f6bc3d9e51
 
-The same recording is also stored in the repository at [`Demo/demo.mp4`](Demo/demo.mp4).
-
 ---
 
 ## Table of Contents
