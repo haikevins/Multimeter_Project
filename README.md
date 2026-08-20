@@ -172,20 +172,27 @@ The project is structured around several practical embedded-software goals:
 
 ### 3.3 Functional hardware view
 
+The hardware view is split into two focused diagrams so the signal paths remain readable on GitHub without zooming.
+
+**Measurement and signal path**
+
 ```mermaid
-flowchart LR
+flowchart TB
+    RES["Resistor divider"] -->|"PA3 · ADC1 CH3"| MCU["STM32F103C8T6"]
+    CAP["RC measurement node"] -->|"PA4 · ADC1 CH4"| MCU
+    MCU -->|"PA5 · charge control"| CAP
+    PWMIN["External PWM input"] -->|"PA8 / PA6 / PB6"| MCU
+    MCU -->|"PA1 · TIM2 CH2"| PWMOUT["PWM output"]
+```
+
+**User interface and diagnostics path**
+
+```mermaid
+flowchart TB
     USER["User"] --> BUTTONS["PB12..PB15 buttons"]
     BUTTONS --> MCU["STM32F103C8T6"]
-
-    RES["Resistor divider"] -->|"PA3 / ADC1 CH3"| MCU
-    CAP["RC measurement node"] -->|"PA4 / ADC1 CH4"| MCU
-    MCU -->|"PA5 charge control"| CAP
-
-    MCU -->|"PB10 / PB11 I2C2"| LCD["LCD1602 + I2C backpack"]
-    MCU -->|"PA1 / TIM2 CH2"| PWMOUT["PWM output"]
-
-    PWMIN["External PWM input"] -->|"PA8 / PA6 / PB6"| MCU
-    MCU -->|"PA9 USART1 TX"| HOST["Serial terminal"]
+    MCU -->|"PB10 / PB11 · I2C2"| LCD["LCD1602 + I2C backpack"]
+    MCU -->|"PA9 · USART1 TX"| HOST["Serial terminal"]
 ```
 
 ### 3.4 Clock assumptions used by the firmware
@@ -212,26 +219,29 @@ The source is organized as a layered embedded architecture rather than a monolit
 
 ### 4.1 Dependency direction
 
+The architecture has a primary downward dependency axis, plus a small set of deliberate direct dependencies used by the current source.
+
+**Primary dependency axis**
+
 ```mermaid
 flowchart TB
-    APP["Application\napp_controller / ui_controller / ui_view / ui_formatter"]
-    SVC["Services\nmeasurement / signal generator / config"]
-    DRV["Drivers\nADC / buttons / LCD / PWM / Flash / capacitor control"]
-    INF["Infrastructure\nError Manager / Debug Logger"]
-    PLT["Platform\nSystem time / UART / system init"]
-    VENDOR["STM32 SPL / CMSIS / MCU hardware"]
+    APP["Application"] --> SVC["Services"]
+    SVC --> DRV["Drivers"]
+    DRV --> INF["Infrastructure"]
+    INF --> PLT["Platform"]
+    PLT --> VENDOR["STM32 SPL / CMSIS / MCU"]
+```
 
-    APP --> SVC
-    APP --> DRV
-    SVC --> DRV
-    DRV --> INF
-    SVC --> INF
-    INF --> PLT
-    APP --> PLT
+**Direct dependencies present in the implementation**
+
+```mermaid
+flowchart TB
+    APP["Application"] --> DRV["Drivers"]
+    APP --> PLT["Platform"]
+    SVC["Services"] --> INF["Infrastructure"]
     SVC --> PLT
     DRV --> PLT
-    PLT --> VENDOR
-    DRV --> VENDOR
+    DRV --> VENDOR["STM32 SPL / CMSIS / MCU"]
 ```
 
 The architectural rule is not that every call must pass through every layer. The important rule is **dependency direction**: low-level modules must not depend on application/UI state.
@@ -327,14 +337,14 @@ int main(void) {
 Initialization order is controlled by `AppController_Init()`:
 
 ```mermaid
-flowchart TD
+flowchart TB
     RESET["Reset"] --> PLATFORM["Platform_InitSystem"]
     PLATFORM --> ERROR["ErrorManager_Init"]
-    ERROR --> CONFIG["ConfigService_Init / FlashStorage_Load"]
+    ERROR --> CONFIG["ConfigService_Init<br/>FlashStorage_Load"]
     CONFIG --> TIME["SystemTime_Init"]
     TIME --> BUTTON["ButtonDriver_Init"]
-    BUTTON --> UART["UartPort_Init at 9600 baud"]
-    UART --> LOGGER["Debug logger ready + flush boot errors"]
+    BUTTON --> UART["UartPort_Init<br/>9600 baud"]
+    UART --> LOGGER["Debug logger ready<br/>flush boot errors"]
     LOGGER --> MEASURE["MeasurementService_Init"]
     MEASURE --> SIGNAL["SignalGeneratorService_Init"]
     SIGNAL --> LCD["Lcd1602Driver_Init"]
@@ -370,28 +380,26 @@ Every `AppController_RunOnce()` iteration performs three high-level jobs:
 The firmware uses interrupts only where asynchronous timing/data capture is useful.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph ISR["Interrupt context"]
-        SYSTICK["SysTick_Handler\n1 ms tick"]
-        ADCIRQ["ADC1_2_IRQHandler\naccumulate samples"]
-        TIMIRQ["TIM1 / TIM3 / TIM4 IRQ\ncapture PWM period + high time"]
-        UARTIRQ["USART1_IRQHandler\nreceive bytes"]
+        direction TB
+        SYSTICK["SysTick<br/>1 ms tick"]
+        ADCIRQ["ADC1_2 IRQ<br/>sample accumulation"]
+        TIMIRQ["TIM1 / TIM3 / TIM4 IRQ<br/>PWM capture"]
+        UARTIRQ["USART1 IRQ<br/>receive path"]
     end
 
     subgraph MAIN["Main context"]
-        APP["AppController_RunOnce"]
-        UI["UiController"]
-        MEAS["MeasurementService"]
-        FORMAT["Filtering / calculations / formatting"]
+        direction TB
+        APP["AppController_RunOnce"] --> UI["UiController"]
+        UI --> MEAS["MeasurementService"]
+        MEAS --> FORMAT["Filtering / calculations / formatting"]
     end
 
     SYSTICK --> APP
     ADCIRQ --> MEAS
     TIMIRQ --> MEAS
     UARTIRQ --> APP
-    APP --> UI
-    UI --> MEAS
-    MEAS --> FORMAT
 ```
 
 The ADC ISR intentionally avoids floating-point filtering and formatting. It only reads samples, accumulates an integer sum, and publishes a completed batch.
@@ -537,13 +545,25 @@ re-insertion count  = 5 batches
 re-insertion time   = 200 ms continuous qualification
 ```
 
+To avoid edge-label collisions, startup classification and steady-state hysteresis are shown separately.
+
+**Startup qualification**
+
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> UNKNOWN
-    UNKNOWN --> PRESENT: confirmed below present threshold
-    UNKNOWN --> ABSENT: 3 confirmed open batches
-    PRESENT --> ABSENT: 3 confirmed open batches
-    ABSENT --> PRESENT: 5 present batches and 200 ms valid interval
+    UNKNOWN --> PRESENT: present confirmed
+    UNKNOWN --> ABSENT: open x3
+```
+
+**Steady-state presence hysteresis**
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    PRESENT --> ABSENT: open x3
+    ABSENT --> PRESENT: present x5 + 200 ms
 ```
 
 `ABSENT` maps to the UI status `No Resistor`. The hysteresis gap between 4060 and 4075 prevents status chatter near full scale.
@@ -594,14 +614,15 @@ where `t` is measured in seconds using the 1 ms SysTick timebase.
 
 ```mermaid
 stateDiagram-v2
+    direction TB
     [*] --> WAIT_CHARGE
-    WAIT_CHARGE --> INITIAL_CHARGE: CHARGE button
-    INITIAL_CHARGE --> DISCHARGING: ADC above high threshold
-    DISCHARGING --> TIMED_CHARGE: ADC below low threshold
-    TIMED_CHARGE --> READY: ADC above high threshold after valid interval
-    TIMED_CHARGE --> NO_COMPONENT: high threshold reached in first batch
-    READY --> WAIT_CHARGE: measurement restarted / mode re-entered
-    NO_COMPONENT --> INITIAL_CHARGE: CHARGE button
+    WAIT_CHARGE --> INITIAL_CHARGE: CHARGE
+    INITIAL_CHARGE --> DISCHARGING: ADC >= high
+    DISCHARGING --> TIMED_CHARGE: ADC <= low
+    TIMED_CHARGE --> READY: ADC >= high / valid time
+    TIMED_CHARGE --> NO_COMPONENT: high in first batch
+    READY --> WAIT_CHARGE: restart / re-enter
+    NO_COMPONENT --> INITIAL_CHARGE: CHARGE
 ```
 
 Implementation sequence:
@@ -687,7 +708,7 @@ The selected timer is based on the **expected frequency** supplied by the applic
 `All Mode` advances through four measurement screens using SELECT:
 
 ```mermaid
-flowchart LR
+flowchart TB
     R["1. Resistor"] -->|"SELECT"| C["2. Capacitor"]
     C -->|"SELECT"| F["3. Frequency"]
     F -->|"SELECT"| D["4. Duty"]
@@ -793,15 +814,13 @@ The event path is:
 sequenceDiagram
     participant HW as GPIO button
     participant BD as ButtonDriver
-    participant FIFO as Event FIFO
     participant APP as AppController
     participant UI as UiController
 
     HW->>BD: Raw active-low transition
-    BD->>BD: 20 ms debounce qualification
-    BD->>FIFO: Enqueue *_PRESSED event
-    APP->>FIFO: Drain available events
-    FIFO-->>APP: ButtonEvent_t
+    BD->>BD: Debounce 20 ms and enqueue event
+    APP->>BD: ButtonDriver_GetEvent()
+    BD-->>APP: ButtonEvent_t
     APP->>UI: HandleEvent(event)
 ```
 
@@ -836,40 +855,59 @@ MAIN
 
 ### 8.3 UI state machine
 
+The complete UI is split into focused state diagrams. This keeps each diagram readable at normal GitHub zoom while preserving the same state transitions.
+
+**Top-level navigation**
+
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> SPLASH
-    SPLASH --> MAIN: 2 s elapsed
+    SPLASH --> MAIN: 2 s
+    MAIN --> MEASURE: Measure
+    MEASURE --> MAIN: Back
+    MAIN --> TRANSMIT: Transmit
+    TRANSMIT --> MAIN: Back
+```
 
-    MAIN --> MEASURE: Select Measure
-    MAIN --> TRANSMIT: Select Transmit
+**Measure-mode navigation**
 
-    MEASURE --> SINGLE: Select Single Mode
-    MEASURE --> ALL: Select All Mode
-    MEASURE --> MAIN: Select Back
+```mermaid
+stateDiagram-v2
+    direction LR
+    MEASURE --> SINGLE: Single Mode
+    SINGLE --> MEASURE: Back
+    MEASURE --> ALL: All Mode
+    ALL --> MEASURE: fourth step done
+```
 
-    SINGLE --> RESISTOR: Select Resistor
-    SINGLE --> CAPACITOR: Select Capacitor
-    SINGLE --> FREQUENCY: Select Frequency
-    SINGLE --> DUTY: Select Duty Cycle
-    SINGLE --> MEASURE: Select Back
+**Single-measurement branch**
 
+```mermaid
+stateDiagram-v2
+    direction TB
+    SINGLE --> RESISTOR: Resistor
+    SINGLE --> CAPACITOR: Capacitor
+    SINGLE --> FREQUENCY: Frequency
+    SINGLE --> DUTY: Duty Cycle
     RESISTOR --> SINGLE: SELECT
     CAPACITOR --> SINGLE: SELECT
     FREQUENCY --> SINGLE: SELECT
     DUTY --> SINGLE: SELECT
+```
 
-    ALL --> MEASURE: finish fourth step
+**Transmit and settings branch**
 
-    TRANSMIT --> FREQ_EDIT: Select Frequency
-    TRANSMIT --> DUTY_EDIT: Select Duty Cycle
-    TRANSMIT --> FREQ_STEP: Select Setting
-    TRANSMIT --> MAIN: Select Back
-
+```mermaid
+stateDiagram-v2
+    direction TB
+    TRANSMIT --> FREQ_EDIT: Frequency
+    TRANSMIT --> DUTY_EDIT: Duty Cycle
+    TRANSMIT --> FREQ_STEP: Setting
     FREQ_EDIT --> SAVE_FEEDBACK: SELECT / save
     DUTY_EDIT --> SAVE_FEEDBACK: SELECT / save
     FREQ_STEP --> SAVE_FEEDBACK: SELECT / save
-    SAVE_FEEDBACK --> DUTY_STEP: frequency-step save succeeds
+    SAVE_FEEDBACK --> DUTY_STEP: freq-step saved
     DUTY_STEP --> SAVE_FEEDBACK: SELECT / save
     SAVE_FEEDBACK --> TRANSMIT: save succeeds
 ```
@@ -978,32 +1016,53 @@ CRC uses polynomial `0xEDB88320` and covers all bytes before the `crc32` field.
 
 ### 9.3 Load state
 
+The normal V1 validation path and the legacy fallback are shown separately to keep both branches legible.
+
+**Current V1 record validation**
+
 ```mermaid
-flowchart TD
-    READ["Read V1-sized record"] --> META["Validate magic / version / size"]
+flowchart TB
+    READ["Read V1 record"] --> META["Validate magic / version / size"]
     META --> CRC["Validate CRC-32"]
     CRC --> RANGE["Validate setting ranges"]
     RANGE -->|"valid"| USE["Use stored settings"]
-    RANGE -->|"invalid current format"| LEGACY["Try legacy V0 migration"]
-    LEGACY -->|"valid V0"| MIGRATE["Convert to V1 in RAM and mark rewrite"]
-    LEGACY -->|"not valid V0"| DEFAULTS["Load safe defaults and mark rewrite"]
+    RANGE -->|"invalid"| FALLBACK["Enter legacy fallback"]
+```
+
+**Legacy fallback**
+
+```mermaid
+flowchart TB
+    LEGACY["Try legacy V0 migration"] --> CHECK{"Valid V0?"}
+    CHECK -->|"Yes"| MIGRATE["Convert to V1 in RAM<br/>mark rewrite"]
+    CHECK -->|"No"| DEFAULTS["Load safe defaults<br/>mark rewrite"]
 ```
 
 A migrated/default record is not immediately forced to Flash during boot; it is marked so the next save can rewrite the current format.
 
 ### 9.4 Save transaction
 
+The save path is split at the durability boundary so the control decision and Flash critical section remain easy to read.
+
+**Prepare and decide whether a write is needed**
+
 ```mermaid
-flowchart TD
+flowchart TB
     SNAP["Snapshot ConfigService settings"] --> VALIDATE["Range validation"]
     VALIDATE --> FINALIZE["Set metadata + CRC"]
-    FINALIZE --> CHANGE{"Changed or rewrite required?"}
+    FINALIZE --> CHANGE{"Write required?"}
     CHANGE -->|"No"| DONE["Return current status"]
-    CHANGE -->|"Yes"| IRQOFF["Save PRIMASK and disable IRQs"]
-    IRQOFF --> ERASE["Erase page 0x0800FC00"]
-    ERASE --> PROGRAM["Program record as half-words"]
-    PROGRAM --> IRQON["Lock Flash and restore IRQ state"]
-    IRQON --> VERIFY["Read back + validate + memcmp"]
+    CHANGE -->|"Yes"| WRITE["Enter Flash transaction"]
+```
+
+**Flash transaction and verification**
+
+```mermaid
+flowchart TB
+    IRQOFF["Save PRIMASK<br/>disable IRQs"] --> ERASE["Erase 0x0800FC00 page"]
+    ERASE --> PROGRAM["Program half-words"]
+    PROGRAM --> IRQON["Lock Flash<br/>restore IRQ state"]
+    IRQON --> VERIFY["Read back<br/>validate + memcmp"]
     VERIFY -->|"OK"| COMMIT["Commit currentConfig"]
     VERIFY -->|"Fail"| ERROR["VERIFY_FAILED"]
 ```
@@ -1079,14 +1138,15 @@ Error_Record_t
 Identical adjacent errors occurring within **1000 ms** are coalesced instead of consuming a new history slot or flooding UART.
 
 ```mermaid
-flowchart LR
+flowchart TB
     MODULE["Driver / service"] --> REPORT["ErrorManager_Report"]
-    REPORT --> SAME{"Same source/code/severity within 1 s?"}
+    REPORT --> SAME{"Same error within 1 s?"}
     SAME -->|"Yes"| COUNT["Increment repeat_count"]
+    COUNT --> RETURN["Return without a new log entry"]
     SAME -->|"No"| STORE["Store new history record"]
     STORE --> READY{"Logger ready?"}
-    READY -->|"Yes"| LOG["UART log"]
-    READY -->|"No"| LATER["Retain for later ErrorManager_Flush"]
+    READY -->|"Yes"| LOG["Write UART log"]
+    READY -->|"No"| LATER["Keep entry for<br/>ErrorManager_Flush"]
 ```
 
 Monitored faults include:
