@@ -172,7 +172,7 @@ The project is structured around several practical embedded-software goals:
 
 ### 3.3 Functional hardware view
 
-The hardware view is split into two focused diagrams so the signal paths remain readable on GitHub without zooming.
+The hardware is organized into two primary paths: measurement/signal processing and user interface/diagnostics.
 
 **Measurement and signal path**
 
@@ -379,7 +379,7 @@ Every `AppController_RunOnce()` iteration performs three high-level jobs:
 
 The firmware uses interrupts only where asynchronous timing/data capture is useful.
 
-The interrupt/main-context relationships are split into two narrow diagrams so GitHub does not compress four interrupt sources into one wide canvas.
+Runtime concurrency is organized into two paths: system/UI event handling and measurement acquisition.
 
 **UI and system-time path**
 
@@ -542,7 +542,7 @@ re-insertion count  = 5 batches
 re-insertion time   = 200 ms continuous qualification
 ```
 
-To avoid edge-label collisions, startup classification and steady-state hysteresis are shown separately.
+Resistor presence detection has two distinct phases: initial classification and steady-state hysteresis.
 
 **Startup qualification**
 
@@ -609,7 +609,7 @@ where `t` is measured in seconds using the 1 ms SysTick timebase.
 
 #### Capacitor state machine
 
-The normal measurement cycle and the early no-component path are shown separately. This avoids placing two long transitions around `TIMED_CHARGE` in the same Mermaid canvas.
+The capacitor workflow has two outcomes during timed charging: a normal threshold-crossing measurement and an early no-component detection path.
 
 **Normal measurement cycle**
 
@@ -707,7 +707,7 @@ Disable TIM1/TIM3/TIM4
 -> enable exactly one timer
 ```
 
-The selected timer is based on the **expected frequency** supplied by the application, currently the configured signal-generator frequency. This is an explicit design trade-off discussed later in the README.
+The selected timer is based on the **expected frequency** supplied by the application, currently the configured signal-generator frequency. This is an explicit design trade-off: timer resolution is optimized for the expected frequency, while an unrelated external signal can be measured with a suboptimal timer configuration if the expected value does not match the input.
 
 ---
 
@@ -863,7 +863,7 @@ MAIN
 
 ### 8.3 UI state machine
 
-The complete UI is split into focused state diagrams. This keeps each diagram readable at normal GitHub zoom while preserving the same state transitions.
+The UI state machine is organized into top-level navigation, measurement navigation, measurement states, and transmit/settings states.
 
 **Top-level navigation**
 
@@ -907,7 +907,7 @@ This is the exact behavior implemented by `Handle_Measure_Single_Menu()` and `Ha
 
 **Transmit and settings branch**
 
-The transmit editor and settings workflow also share `SAVE_FEEDBACK`, so one large state diagram creates unnecessary crossing edges. The implementation is easier to read as three focused paths.
+Frequency, duty-cycle, and step-setting editors share the `SAVE_FEEDBACK` state. The return destination is selected through `saveFeedbackReturnMenu`.
 
 **Frequency editor**
 
@@ -1055,7 +1055,7 @@ CRC uses polynomial `0xEDB88320` and covers all bytes before the `crc32` field.
 
 ### 9.3 Load state
 
-The normal V1 validation path and the legacy fallback are shown separately to keep both branches legible.
+Configuration loading consists of a V1 validation path followed by a legacy/default recovery path when the current record is invalid.
 
 **Current V1 record validation**
 
@@ -1081,7 +1081,7 @@ A migrated/default record is not immediately forced to Flash during boot; it is 
 
 ### 9.4 Save transaction
 
-The save path is split at the durability boundary so the control decision and Flash critical section remain easy to read.
+The save operation has two stages: record preparation/change detection and the Flash erase-program-verify transaction.
 
 **Prepare and decide whether a write is needed**
 
@@ -1176,7 +1176,7 @@ Error_Record_t
 
 Identical adjacent errors occurring within **1000 ms** are coalesced instead of consuming a new history slot or flooding UART.
 
-To keep the decision labels away from GitHub's Mermaid toolbar, coalescing and log delivery are shown as two separate flows.
+Error handling consists of two independent concerns: repeated-error coalescing and delivery of newly stored records to the logger.
 
 **Error coalescing**
 
@@ -1466,7 +1466,7 @@ However, the design uses a **single Flash page**. If power is lost after erase a
 - Structured UART command/telemetry protocol.
 - Host-side logging and plotting utility.
 - Automated hardware-in-the-loop tests for PWM loopback, buttons, LCD, ADC thresholds, and Flash recovery.
-- Dedicated schematic/PCB documentation tied directly to the pin map in this README.
+- Dedicated schematic/PCB documentation tied directly to the firmware pin map.
 
 ---
 
