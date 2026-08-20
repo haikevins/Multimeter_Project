@@ -379,27 +379,24 @@ Every `AppController_RunOnce()` iteration performs three high-level jobs:
 
 The firmware uses interrupts only where asynchronous timing/data capture is useful.
 
+The interrupt/main-context relationships are split into two narrow diagrams so GitHub does not compress four interrupt sources into one wide canvas.
+
+**UI and system-time path**
+
 ```mermaid
 flowchart TB
-    subgraph ISR["Interrupt context"]
-        direction TB
-        SYSTICK["SysTick<br/>1 ms tick"]
-        ADCIRQ["ADC1_2 IRQ<br/>sample accumulation"]
-        TIMIRQ["TIM1 / TIM3 / TIM4 IRQ<br/>PWM capture"]
-        UARTIRQ["USART1 IRQ<br/>receive path"]
-    end
+    SYSTICK["SysTick<br/>1 ms tick"] --> APP["AppController_RunOnce"]
+    UARTIRQ["USART1 IRQ<br/>receive path"] --> APP
+    APP --> UI["UiController"]
+```
 
-    subgraph MAIN["Main context"]
-        direction TB
-        APP["AppController_RunOnce"] --> UI["UiController"]
-        UI --> MEAS["MeasurementService"]
-        MEAS --> FORMAT["Filtering / calculations / formatting"]
-    end
+**Measurement path**
 
-    SYSTICK --> APP
-    ADCIRQ --> MEAS
-    TIMIRQ --> MEAS
-    UARTIRQ --> APP
+```mermaid
+flowchart TB
+    ADCIRQ["ADC1_2 IRQ<br/>sample accumulation"] --> MEAS["MeasurementService"]
+    TIMIRQ["TIM1 / TIM3 / TIM4 IRQ<br/>PWM capture"] --> MEAS
+    MEAS --> FORMAT["Filtering / calculations / formatting"]
 ```
 
 The ADC ISR intentionally avoids floating-point filtering and formatting. It only reads samples, accumulates an integer sum, and publishes a completed batch.
@@ -612,6 +609,10 @@ where `t` is measured in seconds using the 1 ms SysTick timebase.
 
 #### Capacitor state machine
 
+The normal measurement cycle and the early no-component path are shown separately. This avoids placing two long transitions around `TIMED_CHARGE` in the same Mermaid canvas.
+
+**Normal measurement cycle**
+
 ```mermaid
 stateDiagram-v2
     direction TB
@@ -619,9 +620,16 @@ stateDiagram-v2
     WAIT_CHARGE --> INITIAL_CHARGE: CHARGE
     INITIAL_CHARGE --> DISCHARGING: ADC >= high
     DISCHARGING --> TIMED_CHARGE: ADC <= low
-    TIMED_CHARGE --> READY: ADC >= high / valid time
+    TIMED_CHARGE --> READY: valid high crossing
+    READY --> WAIT_CHARGE: restart
+```
+
+**Early no-component detection**
+
+```mermaid
+stateDiagram-v2
+    direction TB
     TIMED_CHARGE --> NO_COMPONENT: high in first batch
-    READY --> WAIT_CHARGE: restart / re-enter
     NO_COMPONENT --> INITIAL_CHARGE: CHARGE
 ```
 
@@ -861,7 +869,7 @@ The complete UI is split into focused state diagrams. This keeps each diagram re
 
 ```mermaid
 stateDiagram-v2
-    direction LR
+    direction TB
     [*] --> SPLASH
     SPLASH --> MAIN: 2 s
     MAIN --> MEASURE: Measure
@@ -874,7 +882,7 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    direction LR
+    direction TB
     MEASURE --> SINGLE: Single Mode
     SINGLE --> MEASURE: Back
     MEASURE --> ALL: All Mode
@@ -883,36 +891,69 @@ stateDiagram-v2
 
 **Single-measurement branch**
 
-```mermaid
-stateDiagram-v2
-    direction TB
-    SINGLE --> RESISTOR: Resistor
-    SINGLE --> CAPACITOR: Capacitor
-    SINGLE --> FREQUENCY: Frequency
-    SINGLE --> DUTY: Duty Cycle
-    RESISTOR --> SINGLE: SELECT
-    CAPACITOR --> SINGLE: SELECT
-    FREQUENCY --> SINGLE: SELECT
-    DUTY --> SINGLE: SELECT
+A four-way bidirectional Mermaid state diagram is intentionally avoided here. GitHub's automatic layout places all return edges around the central `SINGLE` state, which makes labels overlap and can place the right-most state under Mermaid's floating toolbar. The same transitions are clearer as a compact text diagram:
+
+```text
+SINGLE
+├── Resistor   -> RESISTOR
+├── Capacitor  -> CAPACITOR
+├── Frequency  -> FREQUENCY
+└── Duty Cycle -> DUTY
+
+SELECT in RESISTOR / CAPACITOR / FREQUENCY / DUTY
+    -> Handle_Measure_Exit()
+    -> SINGLE
 ```
+
+This is the exact behavior implemented by `Handle_Measure_Single_Menu()` and `Handle_Measure_Exit()`.
 
 **Transmit and settings branch**
 
-```mermaid
-stateDiagram-v2
-    direction TB
-    TRANSMIT --> FREQ_EDIT: Frequency
-    TRANSMIT --> DUTY_EDIT: Duty Cycle
-    TRANSMIT --> FREQ_STEP: Setting
-    FREQ_EDIT --> SAVE_FEEDBACK: SELECT / save
-    DUTY_EDIT --> SAVE_FEEDBACK: SELECT / save
-    FREQ_STEP --> SAVE_FEEDBACK: SELECT / save
-    SAVE_FEEDBACK --> DUTY_STEP: freq-step saved
-    DUTY_STEP --> SAVE_FEEDBACK: SELECT / save
-    SAVE_FEEDBACK --> TRANSMIT: save succeeds
+The transmit editor and settings workflow also share `SAVE_FEEDBACK`, so one large state diagram creates unnecessary crossing edges. The implementation is easier to read as three focused paths.
+
+**Frequency editor**
+
+```text
+TRANSMIT
+  -> Frequency
+  -> FREQ_EDIT
+  -> SELECT / ConfigService_Save()
+  -> SAVE_FEEDBACK (800 ms)
+       ├── save OK   -> TRANSMIT
+       └── save fail -> FREQ_EDIT
 ```
 
-> The `SAVE_FEEDBACK` state is shared by several editors. Its actual return state is stored in `saveFeedbackReturnMenu`, so a failed save can return to the editor that initiated it.
+**Duty-cycle editor**
+
+```text
+TRANSMIT
+  -> Duty Cycle
+  -> DUTY_EDIT
+  -> SELECT / ConfigService_Save()
+  -> SAVE_FEEDBACK (800 ms)
+       ├── save OK   -> TRANSMIT
+       └── save fail -> DUTY_EDIT
+```
+
+**Step-setting sequence**
+
+```text
+TRANSMIT
+  -> Setting
+  -> FREQ_STEP
+  -> SELECT / save
+  -> SAVE_FEEDBACK (800 ms)
+       ├── save OK   -> DUTY_STEP
+       └── save fail -> FREQ_STEP
+
+DUTY_STEP
+  -> SELECT / save
+  -> SAVE_FEEDBACK (800 ms)
+       ├── save OK   -> TRANSMIT
+       └── save fail -> DUTY_STEP
+```
+
+`SAVE_FEEDBACK` is one real UI state. `saveFeedbackReturnMenu` stores the state that should be entered after its 800 ms display interval, which is why the failure paths above return to the editor that initiated the save.
 
 ### 8.4 Non-blocking transient states
 
@@ -1137,16 +1178,26 @@ Error_Record_t
 
 Identical adjacent errors occurring within **1000 ms** are coalesced instead of consuming a new history slot or flooding UART.
 
+To keep the decision labels away from GitHub's Mermaid toolbar, coalescing and log delivery are shown as two separate flows.
+
+**Error coalescing**
+
 ```mermaid
 flowchart TB
     MODULE["Driver / service"] --> REPORT["ErrorManager_Report"]
     REPORT --> SAME{"Same error within 1 s?"}
     SAME -->|"Yes"| COUNT["Increment repeat_count"]
-    COUNT --> RETURN["Return without a new log entry"]
+    COUNT --> RETURN["Return"]
     SAME -->|"No"| STORE["Store new history record"]
-    STORE --> READY{"Logger ready?"}
+```
+
+**Delivery after a new record is stored**
+
+```mermaid
+flowchart TB
+    STORE["New history record"] --> READY{"Logger ready?"}
     READY -->|"Yes"| LOG["Write UART log"]
-    READY -->|"No"| LATER["Keep entry for<br/>ErrorManager_Flush"]
+    READY -->|"No"| LATER["Retain for ErrorManager_Flush"]
 ```
 
 Monitored faults include:
